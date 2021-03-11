@@ -92,8 +92,7 @@ func newHTTPClient() httpClient {
 	}
 }
 
-// CustomResponseWriter runs the reverse proxy's ServeHTTP with a custom rw, allowing us to get around some type-tetris.
-func (proxy *DataSourceProxy) CustomResponseWriter(rw http.ResponseWriter) {
+func (proxy *DataSourceProxy) HandleRequest() {
 	if err := proxy.validateRequest(); err != nil {
 		proxy.ctx.JsonApiErr(403, err.Error(), nil)
 		return
@@ -160,11 +159,7 @@ func (proxy *DataSourceProxy) CustomResponseWriter(rw http.ResponseWriter) {
 		logger.Error("Failed to inject span context instance", "err", err)
 	}
 
-	reverseProxy.ServeHTTP(rw, proxy.ctx.Req.Request)
-}
-
-func (proxy *DataSourceProxy) HandleRequest() {
-	proxy.CustomResponseWriter(proxy.ctx.Resp)
+	reverseProxy.ServeHTTP(proxy.ctx.Resp, proxy.ctx.Req.Request)
 }
 
 func (proxy *DataSourceProxy) addTraceFromHeaderValue(span opentracing.Span, headerName string, tagName string) {
