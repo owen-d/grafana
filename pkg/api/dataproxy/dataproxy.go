@@ -21,9 +21,12 @@ type DataProxy struct {
 }
 
 func (p *DataProxy) ProxyDataSourceRequest(c *models.ReqContext) {
+	p.ProxyDatasourceRequestWithID(c, c.ParamsInt64(":id"))
+}
+
+func (p *DataProxy) ProxyDatasourceRequestWithID(c *models.ReqContext, dsID int64) {
 	c.TimeRequest(metrics.MDataSourceProxyReqTimer)
 
-	dsID := c.ParamsInt64(":id")
 	ds, err := p.DatasourceCache.GetDatasource(dsID, c.SignedInUser, c.SkipCache)
 	if err != nil {
 		if errors.Is(err, models.ErrDataSourceAccessDenied) {
@@ -60,6 +63,7 @@ func (p *DataProxy) ProxyDataSourceRequest(c *models.ReqContext) {
 		return
 	}
 	proxy.HandleRequest()
+
 }
 
 // ensureProxyPathTrailingSlash Check for a trailing slash in original path and makes
