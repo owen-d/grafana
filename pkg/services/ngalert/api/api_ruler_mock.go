@@ -16,42 +16,173 @@ import (
 	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/models"
 	ngmodels "github.com/grafana/grafana/pkg/services/ngalert/models"
+	"github.com/grafana/grafana/pkg/util"
 )
+
+var prometheusAlert = []ngmodels.AlertQuery{
+	{
+		Model: json.RawMessage(`{
+			"datasource": "gdev-prometheus",
+			"datasourceUid": "000000002",
+			"expr": "http_request_duration_microseconds_count",
+			"hide": false,
+			"interval": "",
+			"intervalMs": 1000,
+			"legendFormat": "",
+			"maxDataPoints": 100,
+			"refId": "query"
+		}`),
+		RefID: "query",
+		RelativeTimeRange: ngmodels.RelativeTimeRange{
+			From: ngmodels.Duration(time.Duration(5) * time.Hour),
+			To:   ngmodels.Duration(time.Duration(3) * time.Hour),
+		},
+	},
+	{
+		Model: json.RawMessage(`{
+			"datasource": "__expr__",
+			"datasourceUid": "-100",
+			"expression": "query",
+			"hide": false,
+			"intervalMs": 1000,
+			"maxDataPoints": 100,
+			"reducer": "mean",
+			"refId": "reduced",
+			"type": "reduce"
+		}`),
+		RefID: "reduced",
+		RelativeTimeRange: ngmodels.RelativeTimeRange{
+			From: ngmodels.Duration(time.Duration(5) * time.Hour),
+			To:   ngmodels.Duration(time.Duration(3) * time.Hour),
+		},
+	},
+	{
+		Model: json.RawMessage(`{
+			"datasource": "__expr__",
+			"datasourceUid": "-100",
+			"expression": "$reduced > 10",
+			"hide": false,
+			"intervalMs": 1000,
+			"maxDataPoints": 100,
+			"refId": "condition",
+			"type": "math"
+		}`),
+		RefID: "condition",
+		RelativeTimeRange: ngmodels.RelativeTimeRange{
+			From: ngmodels.Duration(time.Duration(5) * time.Hour),
+			To:   ngmodels.Duration(time.Duration(3) * time.Hour),
+		},
+	},
+}
+
+var testAlert = []ngmodels.AlertQuery{
+	{
+		Model: json.RawMessage(`{
+			"alias": "just-testing",
+			"datasource": "000000004",
+			"datasourceUid": "000000004",
+			"intervalMs": 1000,
+			"maxDataPoints": 100,
+			"orgId": 0,
+			"refId": "A",
+			"scenarioId": "csv_metric_values",
+			"stringInput": "1,20,90,30,5,0"
+		}`),
+		RefID: "A",
+		RelativeTimeRange: ngmodels.RelativeTimeRange{
+			From: ngmodels.Duration(time.Duration(5) * time.Hour),
+			To:   ngmodels.Duration(time.Duration(3) * time.Hour),
+		},
+	},
+	{
+		Model: json.RawMessage(`{
+			"datasource": "__expr__",
+			"datasourceUid": "__expr__",
+			"expression": "$A",
+			"intervalMs": 2000,
+			"maxDataPoints": 200,
+			"orgId": 0,
+			"reducer": "mean",
+			"refId": "B",
+			"type": "reduce"
+		}`),
+		RefID: "B",
+		RelativeTimeRange: ngmodels.RelativeTimeRange{
+			From: ngmodels.Duration(time.Duration(5) * time.Hour),
+			To:   ngmodels.Duration(time.Duration(3) * time.Hour),
+		},
+	},
+}
 
 type RulerApiMock struct {
 	log log.Logger
 }
 
 func (mock RulerApiMock) RouteDeleteNamespaceRulesConfig(c *models.ReqContext) response.Response {
-	datasourceId := c.Params(":DatasourceId")
-	mock.log.Info("RouteDeleteNamespaceRulesConfig: ", "DatasourceId", datasourceId)
+	datasourceID := c.Params(":DatasourceId")
+	mock.log.Info("RouteDeleteNamespaceRulesConfig: ", "DatasourceId", datasourceID)
 	namespace := c.Params(":Namespace")
 	mock.log.Info("RouteDeleteNamespaceRulesConfig: ", "Namespace", namespace)
-	return response.Error(http.StatusNotImplemented, "", nil)
+	return response.JSON(http.StatusAccepted, util.DynMap{"message": "namespace rules deleted"})
 }
 
 func (mock RulerApiMock) RouteDeleteRuleGroupConfig(c *models.ReqContext) response.Response {
-	datasourceId := c.Params(":DatasourceId")
-	mock.log.Info("RouteDeleteRuleGroupConfig: ", "DatasourceId", datasourceId)
+	datasourceID := c.Params(":DatasourceId")
+	mock.log.Info("RouteDeleteRuleGroupConfig: ", "DatasourceId", datasourceID)
 	namespace := c.Params(":Namespace")
 	mock.log.Info("RouteDeleteRuleGroupConfig: ", "Namespace", namespace)
 	groupname := c.Params(":Groupname")
 	mock.log.Info("RouteDeleteRuleGroupConfig: ", "Groupname", groupname)
-	return response.Error(http.StatusNotImplemented, "", nil)
+	return response.JSON(http.StatusAccepted, util.DynMap{"message": "rule group deleted"})
 }
 
 func (mock RulerApiMock) RouteGetNamespaceRulesConfig(c *models.ReqContext) response.Response {
-	datasourceId := c.Params(":DatasourceId")
-	mock.log.Info("RouteGetNamespaceRulesConfig: ", "DatasourceId", datasourceId)
+	datasourceID := c.Params(":DatasourceId")
+	mock.log.Info("RouteGetNamespaceRulesConfig: ", "DatasourceId", datasourceID)
 	namespace := c.Params(":Namespace")
 	mock.log.Info("RouteGetNamespaceRulesConfig: ", "Namespace", namespace)
-
-	return response.Error(http.StatusNotImplemented, "", nil)
+	result := apimodels.NamespaceConfigResponse{
+		namespace: []apimodels.RuleGroupConfig{
+			{
+				Name:     "group1",
+				Interval: 60,
+				Rules: []apimodels.ExtendedRuleNode{
+					{
+						GrafanaManagedAlert: &apimodels.ExtendedUpsertAlertDefinitionCommand{
+							NoDataState:         apimodels.NoData,
+							ExecutionErrorState: apimodels.AlertingErrState,
+							UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
+								UID:       "UID",
+								OrgID:     1,
+								Title:     "rule 1-1",
+								Condition: "condition",
+								Data:      prometheusAlert,
+							},
+						},
+					},
+					{
+						GrafanaManagedAlert: &apimodels.ExtendedUpsertAlertDefinitionCommand{
+							NoDataState:         apimodels.NoData,
+							ExecutionErrorState: apimodels.AlertingErrState,
+							UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
+								UID:       "UID",
+								OrgID:     1,
+								Title:     "rule 1-2",
+								Condition: "B",
+								Data:      testAlert,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return response.JSON(http.StatusAccepted, result)
 }
 
 func (mock RulerApiMock) RouteGetRulegGroupConfig(c *models.ReqContext) response.Response {
-	datasourceId := c.Params(":DatasourceId")
-	mock.log.Info("RouteGetRulegGroupConfig: ", "DatasourceId", datasourceId)
+	datasourceID := c.Params(":DatasourceId")
+	mock.log.Info("RouteGetRulegGroupConfig: ", "DatasourceId", datasourceID)
 	namespace := c.Params(":Namespace")
 	mock.log.Info("RouteGetRulegGroupConfig: ", "Namespace", namespace)
 	groupname := c.Params(":Groupname")
@@ -62,7 +193,7 @@ func (mock RulerApiMock) RouteGetRulegGroupConfig(c *models.ReqContext) response
 			Interval: 60,
 			Rules: []apimodels.ExtendedRuleNode{
 				{
-					GrafanaManagedAlert: apimodels.ExtendedUpsertAlertDefinitionCommand{
+					GrafanaManagedAlert: &apimodels.ExtendedUpsertAlertDefinitionCommand{
 						NoDataState:         apimodels.NoData,
 						ExecutionErrorState: apimodels.AlertingErrState,
 						UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
@@ -70,59 +201,80 @@ func (mock RulerApiMock) RouteGetRulegGroupConfig(c *models.ReqContext) response
 							OrgID:     1,
 							Title:     "something completely different",
 							Condition: "A",
-							Data: []ngmodels.AlertQuery{
-								{
-									Model: json.RawMessage(`{
-										"datasource": "__expr__",
-										"type":"math",
-										"expression":"2 + 2 > 1"
-									}`),
-									RefID: "A",
-									RelativeTimeRange: ngmodels.RelativeTimeRange{
-										From: ngmodels.Duration(time.Duration(5) * time.Hour),
-										To:   ngmodels.Duration(time.Duration(3) * time.Hour),
-									},
-								},
-							},
+							Data:      testAlert,
 						},
 					},
 				},
 			},
 		},
 	}
-	return response.JSON(200, result)
+	return response.JSON(http.StatusAccepted, result)
 }
 
 func (mock RulerApiMock) RouteGetRulesConfig(c *models.ReqContext) response.Response {
-	datasourceId := c.Params(":DatasourceId")
-	mock.log.Info("RouteGetRulesConfig: ", "DatasourceId", datasourceId)
+	datasourceID := c.Params(":DatasourceId")
+	mock.log.Info("RouteGetRulesConfig: ", "DatasourceId", datasourceID)
 	result := apimodels.NamespaceConfigResponse{
-		"namespace1": apimodels.RuleGroupConfig{
-			Name:     "group1",
-			Interval: 60,
-			Rules: []apimodels.ExtendedRuleNode{
-				{
-					GrafanaManagedAlert: apimodels.ExtendedUpsertAlertDefinitionCommand{
-						NoDataState:         apimodels.NoData,
-						ExecutionErrorState: apimodels.AlertingErrState,
-						UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
-							UID:       "UID",
-							OrgID:     1,
-							Title:     "something completely different",
-							Condition: "A",
-							Data: []ngmodels.AlertQuery{
-								{
-									Model: json.RawMessage(`{
-											"datasource": "__expr__",
-											"type":"math",
-											"expression":"2 + 2 > 1"
-										}`),
-									RefID: "A",
-									RelativeTimeRange: ngmodels.RelativeTimeRange{
-										From: ngmodels.Duration(time.Duration(5) * time.Hour),
-										To:   ngmodels.Duration(time.Duration(3) * time.Hour),
-									},
-								},
+		"namespace1": []apimodels.RuleGroupConfig{
+			{
+				Name:     "group1",
+				Interval: 60,
+				Rules: []apimodels.ExtendedRuleNode{
+					{
+						GrafanaManagedAlert: &apimodels.ExtendedUpsertAlertDefinitionCommand{
+							NoDataState:         apimodels.NoData,
+							ExecutionErrorState: apimodels.AlertingErrState,
+							UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
+								UID:       "UID",
+								OrgID:     1,
+								Title:     "rule 1-1",
+								Condition: "A",
+								Data:      testAlert,
+							},
+						},
+					},
+					{
+						GrafanaManagedAlert: &apimodels.ExtendedUpsertAlertDefinitionCommand{
+							NoDataState:         apimodels.NoData,
+							ExecutionErrorState: apimodels.AlertingErrState,
+							UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
+								UID:       "UID",
+								OrgID:     1,
+								Title:     "rule 1-2",
+								Condition: "A",
+								Data:      testAlert,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name:     "group2",
+				Interval: 60,
+				Rules: []apimodels.ExtendedRuleNode{
+					{
+						GrafanaManagedAlert: &apimodels.ExtendedUpsertAlertDefinitionCommand{
+							NoDataState:         apimodels.NoData,
+							ExecutionErrorState: apimodels.AlertingErrState,
+							UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
+								UID:       "UID",
+								OrgID:     1,
+								Title:     "rule 2-1",
+								Condition: "A",
+								Data:      prometheusAlert,
+							},
+						},
+					},
+					{
+						GrafanaManagedAlert: &apimodels.ExtendedUpsertAlertDefinitionCommand{
+							NoDataState:         apimodels.NoData,
+							ExecutionErrorState: apimodels.AlertingErrState,
+							UpdateAlertDefinitionCommand: ngmodels.UpdateAlertDefinitionCommand{
+								UID:       "UID",
+								OrgID:     1,
+								Title:     "rule 2-2",
+								Condition: "A",
+								Data:      testAlert,
 							},
 						},
 					},
@@ -130,13 +282,14 @@ func (mock RulerApiMock) RouteGetRulesConfig(c *models.ReqContext) response.Resp
 			},
 		},
 	}
-	return response.JSON(200, result)
+	return response.JSON(http.StatusAccepted, result)
 }
 
 func (mock RulerApiMock) RoutePostNameRulesConfig(c *models.ReqContext, body apimodels.RuleGroupConfig) response.Response {
-	datasourceId := c.Params(":DatasourceId")
-	mock.log.Info("RoutePostNameRulesConfig: ", "DatasourceId", datasourceId)
+	datasourceID := c.Params(":DatasourceId")
+	mock.log.Info("RoutePostNameRulesConfig: ", "DatasourceId", datasourceID)
 	namespace := c.Params(":Namespace")
 	mock.log.Info("RoutePostNameRulesConfig: ", "Namespace", namespace)
-	return response.Error(http.StatusNotImplemented, "", nil)
+	mock.log.Info("RoutePostNameRulesConfig: ", "body", body)
+	return response.JSON(http.StatusAccepted, util.DynMap{"message": "namespace rules created"})
 }
