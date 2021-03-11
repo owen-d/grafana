@@ -15,7 +15,9 @@ type LotexRuler struct {
 	DataProxy *dataproxy.DataProxy
 }
 
-// withBufferedRW is a hack to work around the type signature exposed by the datasource proxy which uses the underlying ResponseWriter vs what we need to expose implementing the API services (which return a response.Response). Therefore, we replace the response writer so that we can return it.
+// withBufferedRW is a hack to work around the type signature exposed by the datasource proxy
+// which uses the underlying ResponseWriter vs what we need to expose implementing the API services
+// (which return a response.Response). Therefore, we replace the response writer so that we can return it.
 func withBufferedRW(ctx *models.ReqContext) (*models.ReqContext, response.Response) {
 	resp := response.CreateNormalResponse(make(http.Header), nil, 0)
 	cpy := *ctx
@@ -27,7 +29,7 @@ func withBufferedRW(ctx *models.ReqContext) (*models.ReqContext, response.Respon
 // unmodofiedProxy passes a request to a datasource unaltered.
 func (r *LotexRuler) unmodifiedProxy(ctx *models.ReqContext) response.Response {
 	newCtx, resp := withBufferedRW(ctx)
-	r.DataProxy.ProxyDataSourceRequest(newCtx)
+	r.DataProxy.ProxyDatasourceRequestWithID(newCtx, ctx.ParamsInt64("DatasourceId"))
 	return resp
 }
 
