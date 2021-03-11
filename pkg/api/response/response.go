@@ -36,17 +36,17 @@ type NormalResponse struct {
 	err        error
 }
 
-// impl http.ResponseWriter
+// Write implements http.ResponseWriter
 func (r *NormalResponse) Write(b []byte) (int, error) {
 	return r.body.Write(b)
 }
 
-// impl http.ResponseWriter
+// Header implements http.ResponseWriter
 func (r *NormalResponse) Header() http.Header {
 	return r.header
 }
 
-// impl http.ResponseWriter
+// WriteHeader implements http.ResponseWriter
 func (r *NormalResponse) WriteHeader(statusCode int) {
 	r.status = statusCode
 }
