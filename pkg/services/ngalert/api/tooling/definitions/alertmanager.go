@@ -244,7 +244,14 @@ func (c *PostableUserConfig) validate() error {
 
 // MarshalYAML implements yaml.Marshaller.
 func (c *PostableUserConfig) MarshalYAML() (interface{}, error) {
-	yml, err := yaml.Marshal(c.amSimple)
+	// Many of the substructs don't have both json and yaml tags,
+	// meaning the interim map[string]interface{} will have the wrong keys.
+	// Therefore, we turn them into the expected snake case manually.
+	mapped, err := mapJSONKeys(c.amSimple, ToSnakeCase)
+	if err != nil {
+		return nil, err
+	}
+	yml, err := yaml.Marshal(mapped)
 	if err != nil {
 		return nil, err
 	}

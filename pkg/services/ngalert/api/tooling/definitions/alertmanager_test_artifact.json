@@ -3,34 +3,177 @@
     "foo": "bar"
   },
   "alertmanager_config": {
+    "global": {
+      "slack_api_url": "http://mysecret.example.com/",
+      "smtp_auth_password": "multiline\nmysecret",
+      "smtp_auth_username": "alertmanager",
+      "smtp_from": "alertmanager@example.org",
+      "smtp_hello": "host.example.org",
+      "smtp_smarthost": "localhost:25"
+    },
+    "inhibit_rules": [
+      {
+        "equal": [
+          "alertname",
+          "cluster",
+          "service"
+        ],
+        "source_match": {
+          "severity": "critical"
+        },
+        "target_match": {
+          "severity": "warning"
+        }
+      }
+    ],
     "receivers": [
       {
         "email_configs": [
           {
-            "auth_password": "shh",
-            "auth_username": "admin",
-            "from": "bar",
-            "headers": {
-              "Bazz": "buzz"
-            },
-            "html": "there",
-            "text": "hi",
-            "to": "foo"
+            "to": "team-X+alerts@example.org"
           }
         ],
-        "name": "am"
+        "name": "team-X-mails"
+      },
+      {
+        "email_configs": [
+          {
+            "to": "team-X+alerts-critical@example.org"
+          }
+        ],
+        "name": "team-X-pager",
+        "pagerduty_configs": [
+          {
+            "routing_key": "mysecret"
+          }
+        ]
+      },
+      {
+        "email_configs": [
+          {
+            "to": "team-Y+alerts@example.org"
+          }
+        ],
+        "name": "team-Y-mails"
+      },
+      {
+        "name": "team-Y-pager",
+        "pagerduty_configs": [
+          {
+            "routing_key": "mysecret"
+          }
+        ]
+      },
+      {
+        "name": "team-DB-pager",
+        "pagerduty_configs": [
+          {
+            "routing_key": "mysecret"
+          }
+        ]
+      },
+      {
+        "name": "victorOps-receiver",
+        "victorops_configs": [
+          {
+            "api_key": "mysecret",
+            "routing_key": "Sample_route"
+          }
+        ]
+      },
+      {
+        "name": "opsGenie-receiver",
+        "opsgenie_configs": [
+          {
+            "api_key": "mysecret"
+          }
+        ]
+      },
+      {
+        "name": "pushover-receiver",
+        "pushover_configs": [
+          {
+            "token": "mysecret",
+            "user_key": "key"
+          }
+        ]
+      },
+      {
+        "name": "slack-receiver",
+        "slack_configs": [
+          {
+            "channel": "#my-channel",
+            "image_url": "http://some.img.com/img.png"
+          }
+        ]
       }
     ],
     "route": {
-      "continue": false,
-      "receiver": "am",
+      "group_by": [
+        "alertname",
+        "cluster",
+        "service"
+      ],
+      "group_interval": "5m",
+      "group_wait": "30s",
+      "receiver": "team-X-mails",
+      "repeat_interval": "3h",
       "routes": [
         {
-          "continue": false,
-          "receiver": "am"
+          "match_re": {
+            "service": "^(foo1|foo2|baz)$"
+          },
+          "receiver": "team-X-mails",
+          "routes": [
+            {
+              "match": {
+                "severity": "critical"
+              },
+              "receiver": "team-X-pager"
+            }
+          ]
+        },
+        {
+          "match": {
+            "service": "files"
+          },
+          "receiver": "team-Y-mails",
+          "routes": [
+            {
+              "match": {
+                "severity": "critical"
+              },
+              "receiver": "team-Y-pager"
+            }
+          ]
+        },
+        {
+          "group_by": [
+            "alertname",
+            "cluster",
+            "database"
+          ],
+          "match": {
+            "service": "database"
+          },
+          "receiver": "team-DB-pager",
+          "routes": [
+            {
+              "continue": true,
+              "match": {
+                "owner2": "team-X"
+              },
+              "receiver": "team-X-pager"
+            },
+            {
+              "match": {
+                "owner": "team-Y"
+              },
+              "receiver": "team-Y-pager"
+            }
+          ]
         }
       ]
-    },
-    "templates": []
+    }
   }
 }
